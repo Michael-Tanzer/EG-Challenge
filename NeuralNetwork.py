@@ -1,18 +1,15 @@
-import numpy
-import matplotlib.pyplot as plt
-import pandas
+import datetime
 import math
-from keras.models import Sequential, load_model
+
+import matplotlib.pyplot as plt
+import numpy
 from keras.layers import Dense, Dropout, Activation
 from keras.layers import LSTM
-from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential, load_model
 from sklearn.metrics import mean_squared_error
-import os
+from sklearn.preprocessing import MinMaxScaler
 
 from DataProcess import *
-
-
-# https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 look_back = 1
@@ -110,7 +107,6 @@ def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, len
     #plt.plot(scaler.inverse_transform(dataset))
     plt.plot(trainPredictPlot)
     plt.plot(testPredictPlot)
-
     plt.plot(range(len(dataset), len(dataset) + length), [x for x in scaler.inverse_transform([predict])][0][::-1])
     #plt.show()
     return plt
@@ -148,7 +144,7 @@ def getUsefulData(currency):
     trainV, testV = splitTrainTest(datasetV, 0.90)
     trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
 
-    return datasetV, trainXV, trainYV, testXV, testYV
+    return scalerV, datasetV, trainXV, trainYV, testXV, testYV
 
 
 def test():
@@ -174,15 +170,25 @@ def test():
 
 
 def saveGraphsFromModelAndData(currency, predict_length):
-    model = load_model(currency + ".h5")
+    model = load_model(".\\files\\" + currency + ".h5")
 
-    datasetV, trainX, trainY, testX, testY = getUsefulData(currency)
-    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaler, datasetV, trainX, trainY, testX, testY = getUsefulData(currency)
     predictions = predict_sequences_multiple(model, testX[-predict_length:], predict_length)
     plot = plotStuff(datasetV, model, scaler, trainX, trainY, testX, testY, predictions, predict_length)
-    #print([x for x in scalerV.inverse_transform([predictions])][0])
 
-    plot.savefig(".\\graphs\\" + currency + ".gif")
+    lastDate = datetime.datetime.strptime(getLastDate(currency), '%d/%m/%Y')
+    date_list = [lastDate - datetime.timedelta(days=x) for x in range(0, len(datasetV))][::-1]
+    date_list.extend([lastDate + datetime.timedelta(days=x) for x in range(1, predict_length + 1)])
+
+    dates = [date.strftime('%d/%m/%y') for date in date_list]
+
+    plot.xticks(range(len(datasetV) + predict_length)[::(len(datasetV) + predict_length)//6], dates[::(len(datasetV) + predict_length)//6])
+    plot.xlabel('Day')
+    plot.ylabel('Closing Value')
+    plot.title(currency[0].upper() + currency[1:].lower() + " Prediction")
+
+    plot.savefig(".\\graphs\\" + currency + ".png")
+    plot.close()
 
 
 if __name__ == "__main__":
@@ -204,7 +210,9 @@ if __name__ == "__main__":
     #         modelV.save(".\\files\\" + currency + ".h5")
     #
     #         print("saved " + currency)
-    #
+    i = 0
     for currency in allCurrencies():
         saveGraphsFromModelAndData(currency, 10)
+        print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
+        i += 1
 

@@ -25,3 +25,15 @@ def allCurrencies():
             names.append(str(region))
 
     return names
+
+def getLastDate(currency):
+    DFrame = pd.read_csv("coin_data.csv")
+    num = 0
+
+    for region, df_Type in DFrame.groupby('currency'):
+        num += 1
+        if str(region).lower() == currency:
+            date = df_Type['date'].values[-1]
+
+            return date
+
