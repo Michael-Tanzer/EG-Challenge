@@ -14,4 +14,4 @@ def getCurrency(currency):
     for region, df_Type in DFrame.groupby('currency'):
         num+=1
         if str(region).lower()==currency:
-            return df_Type['close']
+            return df_Type
