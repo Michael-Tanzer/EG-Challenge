@@ -3,7 +3,7 @@ import json
 import os
 import pandas as pd
 import urllib.request
-from DataProcess import *
+from DataProcessForNN import *
 from TFANN import ANNR
 import matplotlib.pyplot as mpl
 

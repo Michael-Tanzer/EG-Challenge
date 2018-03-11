@@ -9,7 +9,7 @@ from keras.models import Sequential, load_model
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 
-from DataProcess import *
+from DataProcessForNN import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 look_back = 1
@@ -33,8 +33,9 @@ def splitTrainTest(dataset, train):
     return train, test
 
 
-# convert an array of values into a dataset matrix
+
 def create_dataset(dataset):
+    # convert an array of values into a dataset matrix
     dataX, dataY = [], []
     for i in range(len(dataset) - look_back - 1):
         a = dataset[i:(i + look_back), 0]
@@ -67,8 +68,7 @@ def initialiseModel(trainX, trainY):
         return_sequences=False))
     model.add(Dropout(0.2))
 
-    model.add(Dense(
-        units=1))
+    model.add(Dense(units=1))
     model.add(Activation('linear'))
 
     model.compile(loss='mse', optimizer='rmsprop')
@@ -95,16 +95,18 @@ def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, len
     print('Test Score: %.2f RMSE' % (testScore))
 
 
-    # shift train predictions for plotting
+
+    #  shift train predictions for plotting
     trainPredictPlot = numpy.empty_like(dataset)
     trainPredictPlot[:, :] = numpy.nan
     trainPredictPlot[look_back:len(trainPredict) + look_back, :] = trainPredict
+
     # shift test predictions for plotting
     testPredictPlot = numpy.empty_like(dataset)
     testPredictPlot[:, :] = numpy.nan
     testPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(dataset) - 1, :] = testPredict
+
     # plot baseline and predictions
-    #plt.plot(scaler.inverse_transform(dataset))
     plt.plot(trainPredictPlot)
     plt.plot(testPredictPlot)
     plt.plot(range(len(dataset), len(dataset) + length), [x for x in scaler.inverse_transform([predict])][0][::-1])
@@ -113,14 +115,13 @@ def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, len
 
 
 def predict_sequences_multiple(model, firstValue, length):
+    # predicts the next values starting from n given values and a model
     prediction_seqs = []
     curr_frame = firstValue
 
     for i in range(length):
         predicted = []
 
-        #print(model.predict(curr_frame[numpy.newaxis, :, :]))
-        #predicted.append(model.predict(curr_frame[numpy.newaxis, :, :])[0, 0])
         predicted.append(model.predict(curr_frame)[0, 0])
 
         curr_frame = curr_frame[-length:]
@@ -131,15 +132,18 @@ def predict_sequences_multiple(model, firstValue, length):
     return prediction_seqs
 
 
-def plot_results_multiple(predicted_data, true_data,length, scaler):
+def plot_results_multiple(predicted_data, true_data, scaler):
+    # small function to plot predicted data vs true_data
     plt.plot(scaler.inverse_transform(true_data.reshape(-1, 1)))
     plt.plot(scaler.inverse_transform(numpy.array(predicted_data).reshape(-1, 1)))
     plt.show()
 
 
 def getUsefulData(currency):
+    # gets all the data needed to for other functions like plotstuff
+
     datasetV = getCurrency(currency)['close']
-    # print(datasetV.type)
+
     datasetV, scalerV = normalise(datasetV)
     trainV, testV = splitTrainTest(datasetV, 0.90)
     trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
@@ -148,9 +152,11 @@ def getUsefulData(currency):
 
 
 def test():
+    # function used for testing during the development
+
     currency = 'litecoin'
     datasetV = getCurrency(currency)['close']
-    # print(datasetV.type)
+
     datasetV, scalerV = normalise(datasetV)
     trainV, testV = splitTrainTest(datasetV, 0.90)
     trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
@@ -159,34 +165,40 @@ def test():
     modelV.save(currency + ".h5")
 
     predict_length = 10
-    # print(scalerV.inverse_transform(testXV[-10:]))
+
     predictions = predict_sequences_multiple(modelV, testXV[-predict_length:], predict_length)
-    # print([scalerV.inverse_transform(item) for item in predictions])
+
 
     plotStuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions, predict_length)
     print([x for x in scalerV.inverse_transform([predictions])][0])
-    # plt.plot(range(10), [x for x in scalerV.inverse_transform([predictions])][0])
-    # plt.show()
+
 
 
 def saveGraphsFromModelAndData(currency, predict_length):
+    # load the model corresponding to a currency and makes a graph and saves it to a file
+
+    # loads the model
     model = load_model(".\\files\\" + currency + ".h5")
 
+    # gets data for the graph
     scaler, datasetV, trainX, trainY, testX, testY = getUsefulData(currency)
     predictions = predict_sequences_multiple(model, testX[-predict_length:], predict_length)
     plot = plotStuff(datasetV, model, scaler, trainX, trainY, testX, testY, predictions, predict_length)
 
+    # gets the date range of the data
     lastDate = datetime.datetime.strptime(getLastDate(currency), '%d/%m/%Y')
     date_list = [lastDate - datetime.timedelta(days=x) for x in range(0, len(datasetV))][::-1]
     date_list.extend([lastDate + datetime.timedelta(days=x) for x in range(1, predict_length + 1)])
 
     dates = [date.strftime('%d/%m/%y') for date in date_list]
 
+    # sets the graph x axis to the dates
     plot.xticks(range(len(datasetV) + predict_length)[::(len(datasetV) + predict_length)//6], dates[::(len(datasetV) + predict_length)//6])
     plot.xlabel('Day')
     plot.ylabel('Closing Value')
     plot.title(currency[0].upper() + currency[1:].lower() + " Prediction")
 
+    # saves the file
     plot.savefig(".\\graphs\\" + currency + ".png")
     plot.close()
 
