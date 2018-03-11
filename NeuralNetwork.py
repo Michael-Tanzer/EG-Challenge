@@ -80,7 +80,7 @@ def initialiseModel(trainX, trainY):
     return model
 
 
-def stuff(dataset, model, scaler, trainX, trainY, testX, testY):
+def stuff(dataset, model, scaler, trainX, trainY, testX, testY, predict):
     # make predictions
     trainPredict = model.predict(trainX)
     testPredict = model.predict(testX)
@@ -107,9 +107,11 @@ def stuff(dataset, model, scaler, trainX, trainY, testX, testY):
     testPredictPlot[:, :] = numpy.nan
     testPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(dataset) - 1, :] = testPredict
     # plot baseline and predictions
-    plt.plot(scaler.inverse_transform(dataset))
+    #plt.plot(scaler.inverse_transform(dataset))
     plt.plot(trainPredictPlot)
     plt.plot(testPredictPlot)
+
+    plt.plot(range(len(dataset), len(dataset) + 10), [x for x in scalerV.inverse_transform([predictions])][0][::-1])
     plt.show()
 
 
@@ -139,7 +141,7 @@ def plot_results_multiple(predicted_data, true_data,length, scaler):
 
 
 if __name__ == "__main__":
-    currency = 'zcoin'
+    currency = 'aion'
     datasetV = getCurrency(currency)['close']
     #print(datasetV.type)
     datasetV,scalerV = normalise(datasetV)
@@ -149,41 +151,15 @@ if __name__ == "__main__":
     modelV = initialiseModel(trainXV, trainYV)
     #model.save(currency + ".h5")
 
-    stuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV)
+
 
     predict_length = 10
     #print(scalerV.inverse_transform(testXV[-10:]))
     predictions = predict_sequences_multiple(modelV, testXV[-10:], predict_length)
-    print([scalerV.inverse_transform(item) for item in predictions])
-    print(testYV[-1])
-    print(predictions)
+    #print([scalerV.inverse_transform(item) for item in predictions])
 
-
-
-    #print(scalerV.inverse_transform(numpy.array(predictions).reshape(-1, 1)))
-    #plot_results_multiple(predictions, testYV, predict_length, scalerV)
-    # print(predictions)
-    #
-    # datasetV2 = numpy.concatenate((getCurrency(currency), numpy.array(predictions)))
-    #
-    # scalerV2 = MinMaxScaler(feature_range=(0, 1))
-    # datasetV2 = scalerV.fit_transform(datasetV2.reshape(-1, 1))
-    #
-    # trainXV2 = reshape(datasetV2, testV)[0]
-    #
-    #
-    # prediction = modelV.predict(trainXV2)
-    #
-    # trainPredict = scalerV.inverse_transform(prediction)
-    # trainPredictPlot = numpy.empty_like(datasetV2)
-    # trainPredictPlot[:, :] = numpy.nan
-    # trainPredictPlot = trainPredict
-    # #plt.plot(scalerV.inverse_transform(datasetV))
-    # plt.plot(trainPredictPlot)
-    # plt.axvline(len(trainXV2) - predict_length, color='red')
-    # plt.show()
-    #
-    # #stuff(datasetV, modelV,scalerV,trainXV,trainYV,testXV,testYV)
-
-
+    stuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions)
+    print([x for x in scalerV.inverse_transform([predictions])][0])
+    #plt.plot(range(10), [x for x in scalerV.inverse_transform([predictions])][0])
+    #plt.show()
 
