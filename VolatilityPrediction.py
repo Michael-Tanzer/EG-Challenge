@@ -10,7 +10,7 @@ def modelVolatility(currency):
     trainV, testV = splitTrainTest(datasetV, 0.90)
     trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
     modelV = initialiseModel(trainXV, trainYV)
-    modelV.save(currency + ".h5")
+    modelV.save(".\\files_vol\\" + currency + ".h5")
 
 
 def saveGraphsFromModelAndDataVol(currency, predict_length):
@@ -21,7 +21,7 @@ def saveGraphsFromModelAndDataVol(currency, predict_length):
     trainX, trainY, testX, testY = reshape(trainV, testV)
 
     # loads model from file
-    model = load_model(".\\files\\" + currency + ".h5")
+    model = load_model(".\\files_vol\\" + currency + ".h5")
 
     # makes predictions
     predictions = predict_sequences_multiple(model, testX[-predict_length:], predict_length)
@@ -45,9 +45,20 @@ def saveGraphsFromModelAndDataVol(currency, predict_length):
     plot.close()
 
 if __name__ == "__main__":
+    currencies = allCurrencies()
+
     i = 0
-    for currency in allCurrencies():
-        if i >= 111:
+    for currency in currencies:
+        if i >= 180:
+            modelVolatility(currency)
+            print("model " + str(i+1) + "/" + str(len(currencies)))
+        i+=1
+
+    print("\n\n  --- DONE WITH MODELS --- \n\n")
+
+    i = 0
+    for currency in currencies:
+        if i >= 140:
             saveGraphsFromModelAndDataVol(currency, 10)
-            print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
+            print("done " + str(i + 1) + "/" + str(len(currencies)))
         i += 1
