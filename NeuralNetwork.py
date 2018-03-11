@@ -27,11 +27,11 @@ def normalise(dataset):
     return dataset, scaler
 
 
-def splitTrainTest(dataset, train):
+def splitTrainTest(dataset, train, validation):
     # split into train and test sets
     train_size = int(len(dataset) * train)
-    train, test = dataset[0:train_size, :], dataset[train_size:len(dataset), :]
-    return train, test
+    train, validation, test = dataset[0:train_size, :], dataset[train_size:train_size + int(len(dataset)*validation), :], dataset[train_size + int(len(dataset)*validation):len(dataset):]
+    return train, validation, test
 
 
 
@@ -45,7 +45,7 @@ def create_dataset(dataset):
     return numpy.array(dataX), numpy.array(dataY)
 
 
-def reshape(train, test):
+def reshape(train, test, validation):
     # reshape into X=t and Y=t+1
     trainX, trainY = create_dataset(train)
     testX, testY = create_dataset(test)
@@ -54,10 +54,13 @@ def reshape(train, test):
     trainX = numpy.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
     testX = numpy.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
 
-    return trainX,trainY,testX,testY
+    validationX, validationY = create_dataset(validation)
+    validationX = numpy.reshape(validationX, (validationX.shape[0], 1, validationX.shape[1]))
+
+    return trainX,trainY,testX,testY, validationX, validationY
 
 
-def initialiseModel(trainX, trainY):
+def initialiseModel(trainX, trainY, testX, testY, validationX, validationY):
     # create and fit the LSTM network
     model = Sequential()
 
@@ -74,26 +77,31 @@ def initialiseModel(trainX, trainY):
 
     model.compile(loss='mse', optimizer='rmsprop')
 
-    model.fit(trainX, trainY, batch_size=128, epochs=epochs, validation_split=0.05, verbose=False)
+    model.fit(trainX, trainY, batch_size=128, epochs=epochs, verbose=False, validation_data=(validationX, validationY))
     return model
 
 
-def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, length):
+def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, length, validationX, validationY):
     # make predictions
     trainPredict = model.predict(trainX)
     testPredict = model.predict(testX)
+    validationPredict = model.predict(validationX)
 
     # invert predictions
     trainPredict = scaler.inverse_transform(trainPredict)
     trainY = scaler.inverse_transform([trainY])
     testPredict = scaler.inverse_transform(testPredict)
     testY = scaler.inverse_transform([testY])
+    validationPredict = scaler.inverse_transform(validationPredict)
+    validationY = scaler.inverse_transform([validationY])
 
     #calculate root mean squared error
     trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
     print('Train Score: %.2f RMSE' % (trainScore))
     testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
     print('Test Score: %.2f RMSE' % (testScore))
+    valScore = math.sqrt(mean_squared_error(validationY[0], validationPredict[:,0]))
+    print('Validation Score: %.2f RMSE' % (valScore))
 
 
 
@@ -102,14 +110,25 @@ def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, len
     trainPredictPlot[:, :] = numpy.nan
     trainPredictPlot[look_back:len(trainPredict) + look_back, :] = trainPredict
 
+    valPredictPlot = numpy.empty_like(dataset)
+    valPredictPlot[:, :] = numpy.nan
+    try:
+        valPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(trainPredict) + len(validationPredict) + 3, :] = validationPredict
+    except:
+        valPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(trainPredict) + len(validationPredict) + 2,:] = validationPredict
     # shift test predictions for plotting
     testPredictPlot = numpy.empty_like(dataset)
     testPredictPlot[:, :] = numpy.nan
-    testPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(dataset) - 1, :] = testPredict
+    try:
+        testPredictPlot[len(trainPredict) + len(validationPredict) + 5:len(dataset) - 1, :] = testPredict
+    except:
+        testPredictPlot[len(trainPredict) + len(validationPredict) + 4:len(dataset) - 1, :] = testPredict
+
 
     # plot baseline and predictions
     plt.plot(trainPredictPlot)
     plt.plot(testPredictPlot)
+    plt.plot(valPredictPlot)
     plt.plot(range(len(dataset), len(dataset) + length), [x for x in scaler.inverse_transform([predict])][0][::-1])
     #plt.show()
     return plt
@@ -146,32 +165,33 @@ def getUsefulData(currency):
     datasetV = getCurrency(currency)['close']
 
     datasetV, scalerV = normalise(datasetV)
-    trainV, testV = splitTrainTest(datasetV, 0.90)
-    trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
+    trainV, validationV, testV = splitTrainTest(datasetV, 0.80, 0.10)
+    trainXV, trainYV, testXV, testYV, validationXV, validationYV = reshape(trainV, testV, validationV)
 
-    return scalerV, datasetV, trainXV, trainYV, testXV, testYV
+    return scalerV, datasetV, trainXV, trainYV, testXV, testYV, validationXV, validationYV
 
 
 def test():
     # function used for testing during the development
 
-    currency = 'litecoin'
+    currency = 'bitcoin'
     datasetV = getCurrency(currency)['close']
 
     datasetV, scalerV = normalise(datasetV)
-    trainV, testV = splitTrainTest(datasetV, 0.90)
-    trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
+    trainV, validationV, testV = splitTrainTest(datasetV, 0.80, 0.10)
+    trainXV, trainYV, testXV, testYV, validationXV, validationYV = reshape(trainV, testV, validationV)
 
-    modelV = initialiseModel(trainXV, trainYV)
-    modelV.save(currency + ".h5")
+    modelV = initialiseModel(trainXV, trainYV, testXV, testYV, validationXV, validationYV)
+    #modelV.save(currency + ".h5")
 
     predict_length = 10
 
     predictions = predict_sequences_multiple(modelV, testXV[-predict_length:], predict_length)
 
 
-    plotStuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions, predict_length)
-    print([x for x in scalerV.inverse_transform([predictions])][0])
+    plot = plotStuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions, predict_length, validationXV, validationYV)
+    plot.show()
+    #print([x for x in scalerV.inverse_transform([predictions])][0])
 
 
 
@@ -182,9 +202,9 @@ def saveGraphsFromModelAndData(currency, predict_length):
     model = load_model(".\\files\\" + currency + ".h5")
 
     # gets data for the graph
-    scaler, datasetV, trainX, trainY, testX, testY = getUsefulData(currency)
+    scaler, datasetV, trainX, trainY, testX, testY, validationX, validationY = getUsefulData(currency)
     predictions = predict_sequences_multiple(model, testX[-predict_length:], predict_length)
-    plot = plotStuff(datasetV, model, scaler, trainX, trainY, testX, testY, predictions, predict_length)
+    plot = plotStuff(datasetV, model, scaler, trainX, trainY, testX, testY, predictions, predict_length, validationX, validationY)
 
     # gets the date range of the data
     lastDate = datetime.datetime.strptime(getLastDate(currency), '%d/%m/%Y')
@@ -205,6 +225,7 @@ def saveGraphsFromModelAndData(currency, predict_length):
 
 
 if __name__ == "__main__":
+    saveGraphsFromModelAndData('bitcoin', 10)
     # flag = False
     # print(allCurrencies())
     # for currency in allCurrencies():
@@ -223,10 +244,10 @@ if __name__ == "__main__":
     #         modelV.save(".\\files\\" + currency + ".h5")
     #
     #         print("saved " + currency)
-    i = 0
-    for currency in allCurrencies():
-        if i >= 134:
-            saveGraphsFromModelAndData(currency, 10)
-            print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
-        i += 1
+    # i = 0
+    # for currency in allCurrencies():
+    #     if i >= 134:
+    #         saveGraphsFromModelAndData(currency, 10)
+    #         print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
+    #     i += 1
 
