@@ -212,7 +212,8 @@ if __name__ == "__main__":
     #         print("saved " + currency)
     i = 0
     for currency in allCurrencies():
-        saveGraphsFromModelAndData(currency, 10)
-        print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
+        if i >= 85:
+            saveGraphsFromModelAndData(currency, 10)
+            print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
         i += 1
 

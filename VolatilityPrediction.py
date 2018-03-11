@@ -32,8 +32,8 @@ def saveGraphsFromModelAndDataVol(currency, predict_length):
 
     plot.xticks(range(len(dataset) + predict_length)[::(len(dataset) + predict_length)//6], dates[::(len(dataset) + predict_length)//6])
     plot.xlabel('Day')
-    plot.ylabel('Closing Value')
-    plot.title(currency[0].upper() + currency[1:].lower() + " Prediction")
+    plot.ylabel('Volatility over the previous 7 days')
+    plot.title(currency[0].upper() + currency[1:].lower() + " Volatility Prediction")
 
     plot.savefig(".\\graphs_vol\\" + currency + ".png")
     plot.close()
@@ -41,6 +41,7 @@ def saveGraphsFromModelAndDataVol(currency, predict_length):
 if __name__ == "__main__":
     i = 0
     for currency in allCurrencies():
-        saveGraphsFromModelAndDataVol(currency, 10)
-        print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
+        if i >= 75:
+            saveGraphsFromModelAndDataVol(currency, 10)
+            print("done " + str(i + 1) + "/" + str(len(allCurrencies())))
         i += 1
