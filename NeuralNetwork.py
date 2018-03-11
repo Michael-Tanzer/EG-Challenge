@@ -2,7 +2,7 @@ import numpy
 import matplotlib.pyplot as plt
 import pandas
 import math
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation
 from keras.layers import LSTM
 from sklearn.preprocessing import MinMaxScaler
@@ -19,7 +19,7 @@ look_back = 1
 epochs = 100
 
 # fix random seed for reproducibility
-numpy.random.seed(7)
+#numpy.random.seed(7)
 
 
 def normalise(dataset):
@@ -76,11 +76,11 @@ def initialiseModel(trainX, trainY):
 
     model.compile(loss='mse', optimizer='rmsprop')
 
-    model.fit(trainX, trainY, batch_size=128, epochs=epochs, validation_split=0.05)
+    model.fit(trainX, trainY, batch_size=128, epochs=epochs, validation_split=0.05, verbose=False)
     return model
 
 
-def stuff(dataset, model, scaler, trainX, trainY, testX, testY, predict):
+def plotStuff(dataset, model, scaler, trainX, trainY, testX, testY, predict, length):
     # make predictions
     trainPredict = model.predict(trainX)
     testPredict = model.predict(testX)
@@ -111,8 +111,9 @@ def stuff(dataset, model, scaler, trainX, trainY, testX, testY, predict):
     plt.plot(trainPredictPlot)
     plt.plot(testPredictPlot)
 
-    plt.plot(range(len(dataset), len(dataset) + 10), [x for x in scalerV.inverse_transform([predictions])][0][::-1])
-    plt.show()
+    plt.plot(range(len(dataset), len(dataset) + length), [x for x in scaler.inverse_transform([predict])][0][::-1])
+    #plt.show()
+    return plt
 
 
 def predict_sequences_multiple(model, firstValue, length):
@@ -126,8 +127,8 @@ def predict_sequences_multiple(model, firstValue, length):
         #predicted.append(model.predict(curr_frame[numpy.newaxis, :, :])[0, 0])
         predicted.append(model.predict(curr_frame)[0, 0])
 
-        curr_frame = curr_frame[-10:]
-        curr_frame = numpy.insert(curr_frame[-10:], i + 1, predicted[-1], axis=0)
+        curr_frame = curr_frame[-length:]
+        curr_frame = numpy.insert(curr_frame[-length:], i + 1, predicted[-1], axis=0)
 
         prediction_seqs.append(predicted[-1])
 
@@ -140,26 +141,70 @@ def plot_results_multiple(predicted_data, true_data,length, scaler):
     plt.show()
 
 
-if __name__ == "__main__":
-    currency = 'aion'
+def getUsefulData(currency):
     datasetV = getCurrency(currency)['close']
-    #print(datasetV.type)
-    datasetV,scalerV = normalise(datasetV)
+    # print(datasetV.type)
+    datasetV, scalerV = normalise(datasetV)
+    trainV, testV = splitTrainTest(datasetV, 0.90)
+    trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
+
+    return datasetV, trainXV, trainYV, testXV, testYV
+
+
+def test():
+    currency = 'litecoin'
+    datasetV = getCurrency(currency)['close']
+    # print(datasetV.type)
+    datasetV, scalerV = normalise(datasetV)
     trainV, testV = splitTrainTest(datasetV, 0.90)
     trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
 
     modelV = initialiseModel(trainXV, trainYV)
-    #model.save(currency + ".h5")
-
-
+    modelV.save(currency + ".h5")
 
     predict_length = 10
-    #print(scalerV.inverse_transform(testXV[-10:]))
-    predictions = predict_sequences_multiple(modelV, testXV[-10:], predict_length)
-    #print([scalerV.inverse_transform(item) for item in predictions])
+    # print(scalerV.inverse_transform(testXV[-10:]))
+    predictions = predict_sequences_multiple(modelV, testXV[-predict_length:], predict_length)
+    # print([scalerV.inverse_transform(item) for item in predictions])
 
-    stuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions)
+    plotStuff(datasetV, modelV, scalerV, trainXV, trainYV, testXV, testYV, predictions, predict_length)
     print([x for x in scalerV.inverse_transform([predictions])][0])
-    #plt.plot(range(10), [x for x in scalerV.inverse_transform([predictions])][0])
-    #plt.show()
+    # plt.plot(range(10), [x for x in scalerV.inverse_transform([predictions])][0])
+    # plt.show()
+
+
+def saveGraphsFromModelAndData(currency, predict_length):
+    model = load_model(currency + ".h5")
+
+    datasetV, trainX, trainY, testX, testY = getUsefulData(currency)
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    predictions = predict_sequences_multiple(model, testX[-predict_length:], predict_length)
+    plot = plotStuff(datasetV, model, scaler, trainX, trainY, testX, testY, predictions, predict_length)
+    #print([x for x in scalerV.inverse_transform([predictions])][0])
+
+    plot.savefig(".\\graphs\\" + currency + ".gif")
+
+
+if __name__ == "__main__":
+    # flag = False
+    # print(allCurrencies())
+    # for currency in allCurrencies():
+    #     if currency == "tierion":
+    #         flag = True
+    #         continue
+    #
+    #     if flag:
+    #         datasetV = getCurrency(currency)['close']
+    #         # print(datasetV.type)
+    #         datasetV, scalerV = normalise(datasetV)
+    #         trainV, testV = splitTrainTest(datasetV, 0.95)
+    #         trainXV, trainYV, testXV, testYV = reshape(trainV, testV)
+    #
+    #         modelV = initialiseModel(trainXV, trainYV)
+    #         modelV.save(".\\files\\" + currency + ".h5")
+    #
+    #         print("saved " + currency)
+    #
+    for currency in allCurrencies():
+        saveGraphsFromModelAndData(currency, 10)
 
